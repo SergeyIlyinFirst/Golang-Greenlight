@@ -1,1 +1,1 @@
-# Golang-Greenlight
+# See master branch
