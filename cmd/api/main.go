@@ -8,8 +8,10 @@ import (
 	_ "github.com/lib/pq"
 	"greenlight/internal/data"
 	"greenlight/internal/jsonlog"
+	"greenlight/internal/mailer"
 	"log"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -29,12 +31,21 @@ type config struct {
 		burst   int
 		enabled bool
 	}
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 type application struct {
 	config config
 	logger *jsonlog.Logger
 	models data.Models
+	mailer mailer.Mailer
+	wg     sync.WaitGroup
 }
 
 func main() {
@@ -57,6 +68,13 @@ func main() {
 	dbConnStr := os.Getenv("GREENLIGHT_DB_DSN")
 
 	flag.StringVar(&cfg.db.dsn, "db-dsn", dbConnStr, "PostgreSQL DSN")
+
+	flag.StringVar(&cfg.smtp.host, "smtp-host", "smtp.yandex.ru", "SMTP host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", 587, "SMTP port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", "iljin.iosifstalin", "SMTP username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", "ofmfbvlsbfyyagqg", "SMTP password")
+	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "iljin.iosifstalin@yandex.ru", "SMTP sender")
+
 	flag.Parse()
 
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
@@ -74,6 +92,7 @@ func main() {
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
+		mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender),
 	}
 
 	err = app.serve()
